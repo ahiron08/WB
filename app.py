@@ -26,7 +26,7 @@ def download_images():
 
         start, end = map(int, re.findall(r'\d+', range_str))
         if start > end:
-            return jsonify({"success": False, "error": "Start number must be less than or equal to end."}), 400
+            return jsonify({"success": False, "error": "Start must be <= end."}), 400
 
         headers = {'User-Agent': 'Mozilla/5.0'}
         html = requests.get(url, headers=headers, timeout=20).text
@@ -63,7 +63,6 @@ def download_images():
 
         for img_id in range(start + number - 1, end + number):
             img_url = f"{base_url}{img_id}.webp"
-            print(img_url)
             try:
                 img_data = requests.get(img_url, headers=headers, timeout=5)
                 if img_data.status_code == 200:
@@ -76,10 +75,9 @@ def download_images():
                 else:
                     failed += 1
             except Exception as e:
-                print(f"Error fetching {img_url}: {e}")
+                print(f"Error downloading {img_url}: {e}")
                 failed += 1
 
-        # Zip the folder
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(save_path):
