@@ -9,14 +9,13 @@
       text-align: center;
       margin: 20px;
     }
-    input {
+    input, button {
       margin: 8px;
       padding: 8px;
       width: 300px;
     }
     button {
-      padding: 10px 20px;
-      margin: 8px;
+      width: auto;
     }
     #response {
       margin-top: 20px;
@@ -30,7 +29,7 @@
       gap: 10px;
       padding: 0 20px;
     }
-    #grid img {
+    #grid a img {
       width: 100%;
       height: auto;
       border-radius: 8px;
@@ -40,22 +39,15 @@
 </head>
 <body>
   <h1>Image Grid Downloader</h1>
-
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
   <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-25)"><br>
   <input id="repeatInput" type="number" placeholder="Repeat count (e.g. 4)" min="1"><br>
-
   <button onclick="startDownload()">⬇ Download and Show Grid</button>
 
   <div id="response"></div>
   <div id="grid"></div>
 
   <script>
-    let repeatCounter = 0;
-    let originalStart = 0;
-    let originalEnd = 0;
-    let rangeSize = 0;
-
     async function startDownload() {
       const url = document.getElementById('urlInput').value.trim();
       const rangeInput = document.getElementById('rangeInput');
@@ -70,19 +62,16 @@
         return;
       }
 
-      let start = parseInt(rangeMatch[1]);
-      let end = parseInt(rangeMatch[2]);
+      let originalStart = parseInt(rangeMatch[1]);
+      let originalEnd = parseInt(rangeMatch[2]);
+      let rangeSize = originalEnd - originalStart + 1;
 
-      if (repeatCounter === 0) {
-        originalStart = start;
-        originalEnd = end;
-        rangeSize = originalEnd - originalStart + 1;
-      }
+      for (let batch = 0; batch < repeat; batch++) {
+        const start = originalStart + batch * rangeSize;
+        const end = originalEnd + batch * rangeSize;
 
-      responseDiv.innerText = `Processing batch ${repeatCounter + 1} of ${repeat}...`;
-      grid.innerHTML = "";
+        responseDiv.innerText = `📦 Batch ${batch + 1}/${repeat}: Downloading ${start}-${end}`;
 
-      try {
         const res = await fetch('/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -94,36 +83,28 @@
           const json = JSON.parse(text);
           if (json.success) {
             responseDiv.innerHTML = `
-              ✅ Batch ${repeatCounter + 1} complete!<br>
+              ✅ Batch ${batch + 1} complete!<br>
               Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
               <a href="${json.zip_url}" download>Download ZIP</a>
             `;
             for (let src of json.thumbnails) {
+              const a = document.createElement('a');
+              a.href = src;
+              a.target = "_blank";
               const img = document.createElement('img');
               img.src = src;
-              grid.appendChild(img);
-            }
-
-            repeatCounter++;
-            if (repeatCounter < repeat) {
-              const newStart = originalStart + repeatCounter * rangeSize;
-              const newEnd = originalEnd + repeatCounter * rangeSize;
-              rangeInput.value = `${newStart}-${newEnd}`;
-              setTimeout(startDownload, 500); // delay between batches
-            } else {
-              repeatCounter = 0;
+              a.appendChild(img);
+              grid.appendChild(a);
+              await new Promise(r => setTimeout(r, 200)); // Small delay between each image render
             }
           } else {
             responseDiv.innerText = `❌ Error: ${json.error}`;
-            repeatCounter = 0;
+            break;
           }
         } catch (e) {
           responseDiv.innerText = `❌ Invalid JSON:\n${text}`;
-          repeatCounter = 0;
+          break;
         }
-      } catch (err) {
-        responseDiv.innerText = `❌ Request failed: ${err.message}`;
-        repeatCounter = 0;
       }
     }
   </script>
